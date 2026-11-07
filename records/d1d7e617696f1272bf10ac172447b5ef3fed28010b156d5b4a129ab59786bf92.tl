@@ -1,0 +1,83 @@
+timeline draft2
+engine a1 sine_bits=12 exp_bits=10 phase64=1 env64=1 fb_avg=1 tables=58021f1150d3c8d2
+fs 48000
+gen_clock 64
+length_ns 78000000000
+space binaural
+block 64
+near 1000
+order 3
+pinna pbnh
+yaw 0
+streams music
+gen 0 brown 321 1 5 80
+gen 1 pink 322 23 6
+gen 2 multi 323 1 4 1000 3 4 24000
+gen 3 cantor 324 750 0 81 0
+gen 4 henon 325 150 4 394064967394918 84442493013197
+patch low 0 65536 125 0 0 0 3800 2500 30 5800
+patch low 1 65536 0 922 205 0 2400 3000 60 3500
+patch mist 0 131072 145 0 0 0 4500 2500 30 4600
+patch mist 1 196608 0 1800 205 0 4000 3000 60 3500
+patch glass 0 65536 115 0 0 200 2 4400 1200 4000
+patch glass 1 91750 0 3200 0 160 1 4000 600 3000
+patch breath 0 65536 165 0 0 100 1300 500 30 2600
+patch breath 1 65536 0 717 358 150 30 600 60 200
+filter low lp 650000 900
+filter mist lp 1500000 1200
+mod low 0 gen.0.x cutoff 1800 6
+mod low 1 gen.2.x index1 900 6
+mod mist 0 gen.1.x index1 2200 6
+mod mist 1 gen.4.y pitch0 18 5
+mod mist 2 gen.4.y pitch1 18 5
+mod breath 0 gen.1.x level0 45 6
+voice 0 low
+voice 1 mist
+voice 2 glass
+voice 3 breath
+gen_lane 0 2 3 2 - 750 8100 1700 23000 450 1453
+hash 8723295588338cd2
+0 music 0 pos 0 1100 -200
+0 music 1 pos 800 1100 450
+0 music 2 pos -950 850 250
+0 music 3 pos -400 1200 50
+0 music lane 0 enable 0
+0 music 0 on 65406 28000
+7000000000 music 1 on 195998 26000
+12000000000 music lane 0 enable 1
+12000000000 music 1 move -650 1100 650 32000000000
+15000000000 music 3 on 523251 22000
+18000000000 music 0 off
+19000000000 music 3 off
+20000000000 music 0 on 73416 28000
+24000000000 music 1 off
+26000000000 music 1 on 207652 26000
+28000000000 music gen 2 gain 31000
+28000000000 music 0 yaw 18000
+34000000000 music 3 on 587330 22000
+40000000000 music 0 off
+40000000000 music 3 off
+42000000000 music 0 on 77782 28000
+44000000000 music lane 0 enable 0
+44000000000 music gen 0 enabled 0
+44000000000 music 1 off
+44000000000 music 1 move 700 1000 200 26000000000
+47000000000 music 1 on 233082 26000
+54000000000 music lane 0 enable 1
+54000000000 music gen 0 reset 421
+54000000000 music gen 0 enabled 1
+54000000000 music gen 3 rot 27
+54000000000 music 0 yaw -12000
+57000000000 music 0 off
+57000000000 music 3 on 466164 22000
+59000000000 music 0 on 65406 28000
+60000000000 music 1 off
+62000000000 music 1 on 195998 26000
+62000000000 music 3 off
+64000000000 music gen 2 gain 9000
+66000000000 music 3 on 391995 22000
+68000000000 music lane 0 enable 0
+68000000000 music 0 yaw 0
+69000000000 music 0 off
+69000000000 music 3 off
+70000000000 music 1 off
