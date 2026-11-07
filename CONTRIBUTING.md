@@ -140,10 +140,30 @@ The output has `eligible:true`, `approval:"required"` and observed render facts.
 A nonzero exit refuses the proposal. Eligibility does not establish originality,
 copyright clearance, musical quality or moderation approval.
 
-Future CI must use trusted base code and pinned SDK inputs, a read-only token,
-no secrets and a bounded runner. Do not use `pull_request_target`, execute a PR's
-checker or build its renderer. Workflow installation and public-repository
-selection remain release steps; this document enables no automation itself.
+## Pull request CI — prepared, intake closed
+
+`.github/workflows/tune-pr.yml` prepares the `Validate tune contribution` job for
+`pull_request` to `main` on Ubuntu 24.04 with its system Python, GCC and Make. It checks
+the trusted base commit, fetches candidate Git objects without checking them out,
+and builds only a separately pinned public `chimepond/jottune-synth` commit.
+The checkout action uses a full verified revision, persisted credentials are
+disabled, and the job has read-only contents permission and no service secrets.
+No candidate checker, workflow, package script or build target is executed.
+
+Public automated intake remains closed until a maintainer publishes the trusted
+repositories, sets repository variable `JOTTUNE_SYNTH_REF` to the final public
+SDK's full 40-character lowercase commit ID, and configures the trusted required
+check and review policy. Missing, abbreviated or branch-name SDK references fail
+before checkout/build. Changes to checker/workflow code require protected
+maintainer review; a matching check name alone does not establish trusted code.
+Require branches to be up to date before merging so duplicate and append-only
+checks use the current trusted catalog.
+Do not enable automatic merging or use `pull_request_target` for song proposals.
+
+This workflow has been checked locally, but has not run on GitHub. Before opening
+intake, run valid and deliberately rejected data-only PRs on the actual public
+repositories and require the reviewed check to pass. Hosted acceptance and
+repository settings are explicit release steps.
 
 ## Review, acceptance and withdrawal
 

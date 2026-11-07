@@ -1,0 +1,87 @@
+# Copyright (c) 2026 Nenad Micic
+# SPDX-License-Identifier: Apache-2.0
+name: Tune proposal
+
+'on':
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tune-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate tune contribution
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      SDK_SHA: ${{ vars.JOTTUNE_SYNTH_REF }}
+      GIT_TERMINAL_PROMPT: '0'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Require explicit commit identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          for value in "$BASE_SHA" "$HEAD_SHA" "$SDK_SHA"; do
+            if [[ ! "$value" =~ ^[0-9a-f]{40}$ ]]; then
+              printf '%s\n' 'Base/head and JOTTUNE_SYNTH_REF must be full lowercase commit IDs.' >&2
+              exit 1
+            fi
+          done
+          python3 -c 'import sys; assert sys.version_info >= (3, 12), "Use the Ubuntu 24.04 Python runtime"'
+
+      - name: Check out trusted base tools and catalog
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.BASE_SHA }}
+          path: trusted-tunes
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+          show-progress: false
+
+      - name: Check out separately pinned public synth
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: chimepond/jottune-synth
+          ref: ${{ env.SDK_SHA }}
+          path: trusted-sdk
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+          show-progress: false
+
+      - name: Verify checkouts and build only trusted native source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C "$GITHUB_WORKSPACE/trusted-tunes" rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C "$GITHUB_WORKSPACE/trusted-sdk" rev-parse HEAD)" = "$SDK_SHA"
+          make -C "$GITHUB_WORKSPACE/trusted-sdk" CC=gcc HOSTCC=gcc -j2 all
+
+      - name: Fetch candidate objects without checking them out
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -c core.hooksPath=/dev/null -C "$GITHUB_WORKSPACE/trusted-tunes" fetch --no-tags --no-recurse-submodules --depth=1 origin "$HEAD_SHA"
+          git -C "$GITHUB_WORKSPACE/trusted-tunes" cat-file -e "$HEAD_SHA^{commit}"
+          test "$(git -C "$GITHUB_WORKSPACE/trusted-tunes" rev-parse HEAD)" = "$BASE_SHA"
+
+      - name: Validate proposal with trusted base checker
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/trusted-tunes/tools/validate.py" --root "$GITHUB_WORKSPACE/trusted-tunes"
+          python3 "$GITHUB_WORKSPACE/trusted-tunes/tools/check_pr.py" \
+            --repo "$GITHUB_WORKSPACE/trusted-tunes" --base "$BASE_SHA" --head "$HEAD_SHA" \
+            --harness "$GITHUB_WORKSPACE/trusted-sdk/build/s12e10p1v1/harness"
