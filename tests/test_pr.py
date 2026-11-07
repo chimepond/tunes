@@ -122,6 +122,34 @@ class ProposalTests(unittest.TestCase):
         self.save()
         self.assertTrue(self.check()["eligible"])
 
+    def test_appended_tempo_boolean_cannot_equal_a_numeric_declaration(self):
+        self.proposal()
+        self.declaration["tempo"] = {"min_bpm": 1, "max_bpm": 1}
+        self.song["variants"][0]["discovery"]["metadata"] = {
+            "tempo": {"min_bpm": True, "max_bpm": True, "source": "creator-declared"}}
+        self.save()
+        with self.assertRaisesRegex(ValueError, "differs.*JSON types"):
+            self.check()
+
+    def test_complete_post_change_catalog_checks_unchanged_records_too(self):
+        (self.repo / "records" / (self.old_digest + ".tl")).write_bytes(b"damaged trusted baseline")
+        self.base = self.commit()
+        self.proposal()
+        with self.assertRaisesRegex(ValueError, "canonical identity.*" + self.old_digest):
+            self.check()
+
+    def test_hidden_display_controls_in_title_and_collection_are_refused(self):
+        self.proposal()
+        for field in ("title", "collection"):
+            for control in ("\x7f", "\x85", "\u200b", "\u202e", "\ufeff"):
+                with self.subTest(field=field, control=repr(control)):
+                    self.declaration["song"][field] = "Music" + control
+                    self.song[field] = self.declaration["song"][field]
+                    self.save()
+                    with self.assertRaises(ValueError):
+                        self.check()
+            self.declaration["song"][field] = self.song[field] = "Music"
+
     def test_each_consent_is_exact_true(self):
         self.proposal()
         for key in ("cc0", "dataset", "age16", "history", "original"):
@@ -290,6 +318,23 @@ class ProposalTests(unittest.TestCase):
         self.native_config(flood=True)
         with patch.object(checker, "MAX_NATIVE_OUTPUT", 100), self.assertRaisesRegex(ValueError, "output limit"):
             self.check()
+
+    @unittest.skipUnless(os.name == "posix", "POSIX enforces the native file-size limit.")
+    def test_native_process_cannot_fill_disk_with_expanded_canonical_output(self):
+        target = self.directory / "expanded.tl"
+        command = [sys.executable, "-c", "import pathlib;pathlib.Path(" + repr(str(target)) +
+                   ").write_bytes(b'x' * 2000000)"]
+        status, _, _ = checker.run(command, file_bytes=checker.MAX_RECORD_BYTES, timeout=5)
+        self.assertNotEqual(status, 0)
+        self.assertLessEqual(target.stat().st_size, checker.MAX_RECORD_BYTES)
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "Linux enforces the native address-space limit.")
+    def test_linux_native_process_cannot_allocate_beyond_the_memory_budget(self):
+        command = [sys.executable, "-c", "try:\n bytearray(" + str(checker.MAX_MEMORY_BYTES * 2) +
+                   ")\nexcept MemoryError:\n print('bounded')"]
+        status, output, _ = checker.run(command, memory_bytes=checker.MAX_MEMORY_BYTES, timeout=5)
+        self.assertEqual(status, 0)
+        self.assertEqual(output, b"bounded\n")
 
     def test_full_commit_ids_and_renderer_outside_candidate_are_required(self):
         self.proposal()

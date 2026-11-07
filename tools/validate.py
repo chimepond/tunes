@@ -12,6 +12,7 @@ import math
 from pathlib import Path
 import re
 import subprocess
+import unicodedata
 
 MAX_CATALOG_BYTES = 16 * 1024 * 1024
 MAX_RECORD_BYTES = 25 * 1024 * 1024
@@ -38,7 +39,7 @@ def invalid_constant(value):
 
 def text(value, maximum=500):
     return isinstance(value, str) and 0 < len(value) <= maximum and value.strip() == value and not any(
-        ord(character) < 32 or 0xD800 <= ord(character) <= 0xDFFF for character in value)
+        unicodedata.category(character) in ("Cc", "Cf", "Cs") for character in value)
 
 
 def labels(discovery):
@@ -63,16 +64,10 @@ def labels(discovery):
              provenance["model_source"] in ("client-reported", "user-stated", "unknown"), "Invalid model declaration.")
 
 
-def validate(root):
-    root = Path(root).resolve()
-    catalog = root / "library.json"
-    need(not catalog.is_symlink() and catalog.is_file() and catalog.stat().st_size <= MAX_CATALOG_BYTES,
-         "Use a regular bounded library.json file.")
-    value = json.loads(catalog.read_text(encoding="utf8"), object_pairs_hook=unique_object, parse_constant=invalid_constant)
+def validate_catalog(value, read_record, members):
+    """Validate the complete catalog with a bounded, trusted record reader."""
     need(isinstance(value, dict) and set(value) == {"version", "songs"} and type(value["version"]) is int and
          value["version"] == 1 and isinstance(value["songs"], list) and value["songs"], "Invalid catalog shape.")
-    directory = root / "records"
-    need(directory.is_dir() and not directory.is_symlink(), "Use a regular records directory.")
     songs, variants, hashes, files = set(), set(), set(), []
     orders = {"featured": set(), "showcase": set()}
     total_bytes = 0
@@ -102,15 +97,15 @@ def validate(root):
             need(digest not in hashes, "Duplicate canonical TL hash.")
             hashes.add(digest)
             need(variant["paths"] == ["records/" + digest + ".tl"], "Each version needs its one canonical record path.")
-            record = directory / (digest + ".tl")
-            need(record.is_file() and not record.is_symlink() and 0 < record.stat().st_size <= MAX_RECORD_BYTES,
-                 "Missing, linked, empty or oversized TL file.")
-            data = record.read_bytes()
+            relative = variant["paths"][0]
+            data = read_record(relative)
+            need(isinstance(data, bytes) and 0 < len(data) <= MAX_RECORD_BYTES,
+                 "Empty or oversized TL file: " + relative)
             data.decode("utf8", errors="strict")
-            need(len(data) == record.stat().st_size and hashlib.sha256(data).hexdigest() == digest,
-                 "TL bytes or size differ from their canonical identity.")
+            need(b"\0" not in data and hashlib.sha256(data).hexdigest() == digest,
+                 "TL bytes differ from their canonical identity: " + relative)
             total_bytes += len(data)
-            files.append(record)
+            files.append(relative)
             labels(discovery)
             for section in orders:
                 if section not in discovery:
@@ -122,10 +117,31 @@ def validate(root):
                      "Invalid or duplicate editorial order.")
                 orders[section].add(editorial["order"])
         need("standard" in kinds, "Every song needs an original Standard version.")
-    members = list(directory.iterdir())
-    need(len(members) == len(files) and {member.name for member in members} == {member.name for member in files},
+    need(len(members) == len(files) and set(members) == set(files),
          "Records directory contains missing or unreferenced members.")
     return {"songs": len(songs), "versions": len(variants), "bytes": total_bytes}, files
+
+
+def validate(root):
+    root = Path(root).resolve()
+    catalog = root / "library.json"
+    need(not catalog.is_symlink() and catalog.is_file() and catalog.stat().st_size <= MAX_CATALOG_BYTES,
+         "Use a regular bounded library.json file.")
+    value = json.loads(catalog.read_text(encoding="utf8"), object_pairs_hook=unique_object, parse_constant=invalid_constant)
+    directory = root / "records"
+    need(directory.is_dir() and not directory.is_symlink(), "Use a regular records directory.")
+
+    def read_record(relative):
+        record = root / relative
+        need(record.is_file() and not record.is_symlink() and 0 < record.stat().st_size <= MAX_RECORD_BYTES,
+             "Missing, linked, empty or oversized TL file: " + relative)
+        data = record.read_bytes()
+        need(len(data) == record.stat().st_size, "TL size changed while reading: " + relative)
+        return data
+
+    summary, files = validate_catalog(value, read_record,
+                                      ["records/" + member.name for member in directory.iterdir()])
+    return summary, [root / relative for relative in files]
 
 
 def replay(harness, record):

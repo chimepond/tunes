@@ -93,6 +93,23 @@ class CatalogTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "metadata linkage"):
             validator.validate(self.root)
 
+    def test_display_controls_and_surrogates_are_refused(self):
+        for field in ("title", "collection"):
+            for control in ("\x00", "\x7f", "\x85", "\u200b", "\u202e", "\ufeff", "\ud800"):
+                with self.subTest(field=field, control=repr(control)):
+                    self.value["songs"][0][field] = "Music" + control
+                    self.save()
+                    with self.assertRaisesRegex(ValueError, "song identity"):
+                        validator.validate(self.root)
+            self.value["songs"][0][field] = "Music"
+
+    def test_catalog_tempo_booleans_are_refused(self):
+        self.value["songs"][0]["variants"][0]["discovery"]["metadata"] = {
+            "tempo": {"min_bpm": True, "max_bpm": True, "source": "creator-declared"}}
+        self.save()
+        with self.assertRaisesRegex(ValueError, "declared tempo"):
+            validator.validate(self.root)
+
     def test_non_finite_json_is_refused(self):
         (self.root / "library.json").write_text('{"version":NaN,"songs":[]}')
         with self.assertRaisesRegex(ValueError, "Non-finite"):

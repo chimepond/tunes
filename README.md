@@ -80,4 +80,11 @@ New song proposals use a separate per-record CC0 declaration and the
 JSON, immutable existing entries, consent, duplicate hashes and complete native
 replay. Public automated intake remains closed until its trusted CI and review
 process are enabled. A passing PR does not automatically publish a song, create
-platform ownership or bypass moderation or withdrawal rules.
+platform ownership or bypass moderation or withdrawal rules. Security, rights and
+withdrawal requests can be sent privately using [SECURITY.md](SECURITY.md).
+
+For a record's terms, consult `LICENSE` for the retained archive and its exact
+`contributions/<sha256>.json` when a new contribution has an explicit CC0 grant.
+A missing model attribution is not a licence declaration. Questions about reuse
+or notices belong with the rights contact; the catalog does not relicense works
+by changing a title, stream name or record hash.

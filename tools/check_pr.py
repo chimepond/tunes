@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import selectors
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -36,9 +37,19 @@ CONTRIBUTION = re.compile(r"contributions/([a-f0-9]{64})\.json\Z")
 CONSENT = {"version": "3", "cc0": True, "dataset": True, "age16": True, "history": True, "original": True}
 
 
-def run(command, *, limit=catalog.MAX_CATALOG_BYTES, timeout=30, cwd=None):
+def run(command, *, limit=catalog.MAX_CATALOG_BYTES, timeout=30, cwd=None, memory_bytes=None, file_bytes=None):
     """Bound both output pipes and elapsed time; never invoke a shell."""
-    process = subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    def constrain_resources():
+        import resource
+        if memory_bytes is not None and sys.platform.startswith("linux"):
+            resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
+        if file_bytes is not None:
+            resource.setrlimit(resource.RLIMIT_FSIZE, (file_bytes, file_bytes))
+
+    # Linux enforces address space; both supported POSIX hosts bound file output.
+    # macOS does not provide a reliable RLIMIT_AS; retain inspection/time limits there.
+    constrain = constrain_resources if os.name == "posix" and (memory_bytes is not None or file_bytes is not None) else None
+    process = subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=constrain)
     result = {process.stdout: bytearray(), process.stderr: bytearray()}
     deadline = time.monotonic() + timeout
     try:
@@ -94,10 +105,10 @@ class GitObjects:
         return entries
 
     def blob(self, tree, name, maximum):
-        need(name in tree and tree[name][:2] == ("100644", "blob"), "Song data must be regular Git files with mode 100644.")
+        need(name in tree and tree[name][:2] == ("100644", "blob"), "Song data must be regular Git files with mode 100644: " + name)
         identity = tree[name][2]
         size = int(self.command("cat-file", "-s", identity, limit=100))
-        need(0 < size <= maximum, "Song data file is empty or exceeds its byte limit.")
+        need(0 < size <= maximum, "Song data file is empty or exceeds " + str(maximum) + " bytes: " + name)
         output = self.command("cat-file", "blob", identity, limit=maximum)
         need(len(output) == size, "Git object size differs from its declaration.")
         return output
@@ -168,7 +179,7 @@ def native_row(output, prefix):
 
 def inspect_and_replay(harness, record, directory):
     status, output, _ = run([str(harness), "--inspect", str(record)], limit=MAX_NATIVE_OUTPUT,
-                            timeout=NATIVE_TIMEOUT, cwd=directory)
+                            timeout=NATIVE_TIMEOUT, cwd=directory, memory_bytes=MAX_MEMORY_BYTES, file_bytes=MAX_RECORD_BYTES)
     need(status == 0, "Native inspection refused the record.")
     info = native_row(output, "INSPECT")
     number = lambda key: int(info[key])
@@ -179,12 +190,13 @@ def inspect_and_replay(harness, record, directory):
     need(channels > 0 and number("pcm_bytes") == frames * channels * 2, "Invalid native PCM size.")
     lower, pcm = number("render_bytes_lower_bound"), number("pcm_bytes")
     need(0 < lower <= MAX_RENDER_BYTES and lower + pcm * 3 <= MAX_MEMORY_BYTES,
-         "Record exceeds the existing browser rendering memory profile.")
+         "Record exceeds the browser verification budget (render limit " + str(MAX_RENDER_BYTES) +
+         " bytes; combined render plus three PCM buffers " + str(MAX_MEMORY_BYTES) + " bytes).")
     need(info.get("hash_present") == "1" and re.fullmatch(r"[a-f0-9]{16}", info.get("expected_hash", "")),
          "A complete record needs its saved native hash.")
     canonical = directory / "canonical.tl"
     status, output, _ = run([str(harness), "--play", str(record), "--merged", str(canonical)],
-                            limit=MAX_NATIVE_OUTPUT, timeout=NATIVE_TIMEOUT, cwd=directory)
+                            limit=MAX_NATIVE_OUTPUT, timeout=NATIVE_TIMEOUT, cwd=directory, memory_bytes=MAX_MEMORY_BYTES, file_bytes=MAX_RECORD_BYTES)
     need(status == 0, "Native replay refused the record.")
     play = native_row(output, "PLAY")
     need(play.get("match") == "yes" and play.get("block_indep") == "yes" and
@@ -223,10 +235,14 @@ def check(repo, base, head, harness):
     declaration = read_json(git.blob(candidate, declaration_path, MAX_RECORD_BYTES))
     song = declared_song(declaration, digest)
     need(song["id"] not in {item["id"] for item in old["songs"]}, "Song ID already exists.")
-    need(new["songs"][-1] == song, "Appended catalog entry differs from its declared metadata.")
+    need(json.dumps(new["songs"][-1], sort_keys=True, allow_nan=False) ==
+         json.dumps(song, sort_keys=True, allow_nan=False),
+         "Appended catalog entry differs from its declared metadata, including JSON types.")
     data = git.blob(candidate, record_path, MAX_RECORD_BYTES)
     data.decode("utf8", errors="strict")
     need(b"\0" not in data and hashlib.sha256(data).hexdigest() == digest, "TL bytes differ from their canonical SHA identity.")
+    catalog.validate_catalog(new, lambda name: git.blob(candidate, name, catalog.MAX_RECORD_BYTES),
+                             [name for name in candidate if name.startswith("records/")])
     with tempfile.TemporaryDirectory(prefix="tunes-proposal-") as scratch:
         directory = Path(scratch)
         (directory / "records").mkdir()

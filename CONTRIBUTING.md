@@ -33,11 +33,22 @@ python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read
 New community records use 44100 or 48000 Hz and must be longer than 20 seconds
 and at most 300 seconds, measured in native frames. Other native instrument
 sample rates remain valid for local use. Community records must fit the existing
-browser render-memory profile and
-contain no more than 1,000,000 bytes of valid UTF-8. Native inspection, saved PCM
-hash, block independence and exact canonical bytes must all pass. The canonical
+browser render-memory profile and contain no more than 1,000,000 bytes of valid
+UTF-8. Duration and memory are independent bounds: a 300-second arrangement is
+not guaranteed admission at every rate or channel count. Native inspection can
+refuse a shorter arrangement when its verification buffers exceed the budget.
+Native inspection, saved PCM hash, block independence and exact canonical bytes
+must all pass. The canonical
 SHA-256 is unique across every existing version, regardless of title or author.
 Adding comments or whitespace is not a way to create another canonical identity.
+The retained archive predates these admission rules and includes short studies,
+other sample rates and arrangements beyond the community verification budget.
+Retaining those records does not make them examples of current intake eligibility.
+
+A byte identity is not an originality or audio-equivalence test. Renaming streams
+can change canonical bytes without changing music; submitting another person's
+work with altered names does not satisfy the original-work declaration. Maintainer
+review remains necessary. No automated result establishes the contributor's rights.
 
 ## Metadata and declarations
 
@@ -74,7 +85,8 @@ refused. The declaration file has the same 1,000,000-byte cap as the TL.
 
 - `song.id` uses lowercase ASCII letters, digits and hyphens and ends with
   `-<first 12 hash characters>`; it must be new. The title has 1–60 characters,
-  the collection at most 200, and neither has surrounding whitespace or controls.
+  the collection at most 200, and neither has surrounding whitespace, control
+  characters, surrogate code points or invisible Unicode formatting controls.
 - `made_by` is `agent`, `human` or `mixed`.
 - `genre` is `null` or a 1–160 character label using letters, digits and
   `._:+/@-`. Choose your own description; the checker does not judge the style.
@@ -138,6 +150,11 @@ python3 "$TRUSTED_TUNES/tools/check_pr.py" --repo "$OBJECT_REPO" \
 `OBJECT_REPO` contains the base and fetched candidate objects; no candidate
 checkout is needed. The checker reads blobs directly, bounds JSON/record/command
 output and deadlines, and writes only a temporary native-validation directory.
+It validates the complete proposed catalog and record membership directly from
+Git objects with the ordinary validator's shared rules. The Linux native child
+also has a 256 MiB address-space limit. Both supported POSIX hosts cap temporary
+native file output at 1,000,000 bytes. macOS retains those file, inspection, output
+and time limits but does not claim an operating-system address-space sandbox.
 The output has `eligible:true`, `approval:"required"` and observed render facts.
 A nonzero exit refuses the proposal. Eligibility does not establish originality,
 copyright clearance, musical quality or moderation approval.
@@ -178,7 +195,8 @@ the appended entry. A PR merge is separate from ChimePond intake and does not
 create a platform receipt or bypass its verification, moderation or grace rules.
 
 A public PR already exposes the submitted bytes and metadata. Request removal
-or report a rights issue using the record hash through the repository's issue
-or contact process. Maintainers can remove current managed files and listings;
+or report a rights issue privately to support@chimepond.com, identifying the
+record SHA-256. See [SECURITY.md](SECURITY.md) for private security/rights reporting.
+Maintainers can remove current managed files and listings;
 Git history, forks, dataset copies, earlier analysis and outside downloads may
 remain. Withdrawal cannot promise to erase those copies.

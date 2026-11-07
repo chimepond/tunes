@@ -30,6 +30,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ -z "$SDK_SHA" ]]; then
+            printf '%s\n' 'Song intake is closed: a maintainer must publish the synth and configure the trusted JOTTUNE_SYNTH_REF before contribution checks can run.' >&2
+            exit 1
+          fi
           for value in "$BASE_SHA" "$HEAD_SHA" "$SDK_SHA"; do
             if [[ ! "$value" =~ ^[0-9a-f]{40}$ ]]; then
               printf '%s\n' 'Base/head and JOTTUNE_SYNTH_REF must be full lowercase commit IDs.' >&2
