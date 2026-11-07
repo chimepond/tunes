@@ -2,8 +2,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # ChimePond Tunes
 
-A readable collection of 210 compositions and 582 saved JotTune Timeline
-versions. Every file in `records/` is one complete, independently playable TL.
+A readable collection of complete JotTune Timeline songs. The retained archive
+contains 210 compositions and 582 saved versions; reviewed new contributions
+can supplement that archive. Every file in `records/` is one independently playable TL.
 Standard is the original saved arrangement; Keys and Mirror are separate saved
 listening versions where available. No playback sidecar, source folder or gzip
 support is required. You can rename a downloaded TL without changing its bytes.
@@ -68,12 +69,15 @@ python3 ../jottune-synth/tools/export_library.py --root . --catalog library.json
 
 ## Licensing and contributions
 
-This collection retains its existing Apache-2.0 licence in `LICENSE`. Model
+The retained archive keeps its existing Apache-2.0 licence in `LICENSE`. Model
 attribution is not a rights or licence declaration, and this catalog does not
 assert that every existing song has a separate CC0 dedication.
 
 ChimePond platform publications carry their own explicit CC0 and dataset-consent
 declarations. Those terms are not inferred for other files by copying them here.
-Pull requests do not automatically publish a song, create platform ownership or
-bypass duplicate handling, moderation or withdrawal rules. Contribution intake
-requires its explicit terms and validation before acceptance.
+New song proposals use a separate per-record CC0 declaration and the
+[contribution format](CONTRIBUTING.md). The local trusted-code checker validates
+JSON, immutable existing entries, consent, duplicate hashes and complete native
+replay. Public automated intake remains closed until its trusted CI and review
+process are enabled. A passing PR does not automatically publish a song, create
+platform ownership or bypass moderation or withdrawal rules.
