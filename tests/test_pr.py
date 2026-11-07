@@ -261,6 +261,18 @@ class ProposalTests(unittest.TestCase):
         self.native_config(frames=20 * 48000 + 1)
         self.assertTrue(self.check()["eligible"])
 
+    def test_community_sample_rates_are_explicit_and_other_native_rates_are_refused(self):
+        self.proposal()
+        for rate in (44100, 48000):
+            with self.subTest(accepted_rate=rate):
+                self.native_config(fs=rate, frames=21 * rate)
+                self.assertEqual(self.check()["fs"], rate)
+        for rate in (1, 8000, 32000, 96000):
+            with self.subTest(refused_rate=rate):
+                self.native_config(fs=rate, frames=21 * rate)
+                with self.assertRaisesRegex(ValueError, "sample rate"):
+                    self.check()
+
     def test_native_saved_hash_block_independence_and_canonical_bytes(self):
         self.proposal()
         for values in ({"saved": 0}, {"hash": "ffffffffffffffff"}, {"match": "no"},
@@ -317,18 +329,31 @@ class ProposalTests(unittest.TestCase):
         harness = Path(os.environ["JOTTUNE_PR_HARNESS"]).resolve()
         engine = subprocess.check_output([str(harness), "--engine"], text=True).strip().removeprefix("ENGINE ")
         source = self.directory / "draft.tl"
-        source.write_text("timeline draft1\nengine " + engine + "\nfs 48000\nlength_ns 21000000000\nstreams test\n"
-            "patch sine 0 65536 0 0 0 256 5 500 200 800\npatch sine 1 65536 0 0 0 0 5 500 200 800\n"
-            "voice 0 sine\n0 test 0 on 441000 32767\n1000000000 test 0 off\n")
         canonical = self.directory / "complete.tl"
-        subprocess.run([str(harness), "--play", str(source), "--merged", str(canonical)], check=True, capture_output=True)
-        self.proposal(canonical.read_bytes())
-        self.assertTrue(self.check(harness)["eligible"])
+        for index, rate in enumerate((44100, 48000)):
+            source.write_text("timeline draft1\nengine " + engine + "\nfs " + str(rate) + "\nlength_ns 21000000000\nstreams test\n"
+                "patch sine 0 65536 0 0 0 256 5 500 200 800\npatch sine 1 65536 0 0 0 0 5 500 200 800\n"
+                "voice 0 sine\n0 test 0 on 441000 32767\n1000000000 test 0 off\n")
+            subprocess.run([str(harness), "--play", str(source), "--merged", str(canonical)], check=True, capture_output=True)
+            if index:
+                self.setUp_proposal_data(canonical.read_bytes())
+            else:
+                self.proposal(canonical.read_bytes())
+            observed = self.check(harness)
+            self.assertTrue(observed["eligible"])
+            self.assertEqual(observed["fs"], rate)
+            self.assertEqual(observed["frames"], 21 * rate)
         damaged = re.sub(rb"(?m)^hash ([a-f0-9])", lambda found: b"hash " +
                          (b"f" if found[1] != b"f" else b"e"), canonical.read_bytes(), count=1)
         self.setUp_proposal_data(damaged)
         with self.assertRaisesRegex(ValueError, "inspection|replay"):
             self.check(harness)
+        for rate in (1, 96000):
+            source.write_text(source.read_text().replace("fs 48000\n", "fs " + str(rate) + "\n").replace("fs 1\n", "fs " + str(rate) + "\n"))
+            subprocess.run([str(harness), "--play", str(source), "--merged", str(canonical)], check=True, capture_output=True)
+            self.setUp_proposal_data(canonical.read_bytes())
+            with self.assertRaisesRegex(ValueError, "sample rate"):
+                self.check(harness)
 
 
 if __name__ == "__main__":

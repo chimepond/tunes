@@ -30,8 +30,10 @@ Use an explicitly trusted native renderer to prepare and replay your record:
 python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' complete.tl
 ```
 
-New records must be longer than 20 seconds and at most 300 seconds, measured in
-native frames. They must fit the existing browser render-memory profile and
+New community records use 44100 or 48000 Hz and must be longer than 20 seconds
+and at most 300 seconds, measured in native frames. Other native instrument
+sample rates remain valid for local use. Community records must fit the existing
+browser render-memory profile and
 contain no more than 1,000,000 bytes of valid UTF-8. Native inspection, saved PCM
 hash, block independence and exact canonical bytes must all pass. The canonical
 SHA-256 is unique across every existing version, regardless of title or author.

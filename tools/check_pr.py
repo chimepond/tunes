@@ -28,6 +28,8 @@ NATIVE_TIMEOUT = 120
 # Match the existing synth browser's verified-render admission in web/policy.mjs.
 MAX_RENDER_BYTES = 192 * 1024 * 1024
 MAX_MEMORY_BYTES = 256 * 1024 * 1024
+# Match community music admission; the native instrument supports other rates.
+SAMPLE_RATES = (44100, 48000)
 MAX_SAFE_INTEGER = 9007199254740991
 COMMIT = re.compile(r"[a-f0-9]{40}\Z")
 CONTRIBUTION = re.compile(r"contributions/([a-f0-9]{64})\.json\Z")
@@ -171,7 +173,8 @@ def inspect_and_replay(harness, record, directory):
     info = native_row(output, "INSPECT")
     number = lambda key: int(info[key])
     fs, frames, channels = (number(key) for key in ("fs", "frames", "channels"))
-    need(fs > 0 and 20 * fs < frames <= 300 * fs and number("length_ns") <= 300_000_000_000,
+    need(fs in SAMPLE_RATES, "Community record sample rate must be 44100 or 48000 Hz.")
+    need(20 * fs < frames <= 300 * fs and number("length_ns") <= 300_000_000_000,
          "New songs must be longer than 20 seconds and no longer than 300 seconds.")
     need(channels > 0 and number("pcm_bytes") == frames * channels * 2, "Invalid native PCM size.")
     lower, pcm = number("render_bytes_lower_bound"), number("pcm_bytes")
