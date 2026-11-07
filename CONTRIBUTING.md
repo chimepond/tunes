@@ -148,7 +148,8 @@ the trusted base commit, fetches candidate Git objects without checking them out
 and builds only a separately pinned public `chimepond/jottune-synth` commit.
 The checkout action uses a full verified revision, persisted credentials are
 disabled, and the job has read-only contents permission and no service secrets.
-No candidate checker, workflow, package script or build target is executed.
+Its reviewed run steps execute the base checker and pinned SDK only; they do
+not source candidate scripts or check out candidate files.
 
 Public automated intake remains closed until a maintainer publishes the trusted
 repositories, sets repository variable `JOTTUNE_SYNTH_REF` to the final public
@@ -156,6 +157,8 @@ SDK's full 40-character lowercase commit ID, and configures the trusted required
 check and review policy. Missing, abbreviated or branch-name SDK references fail
 before checkout/build. Changes to checker/workflow code require protected
 maintainer review; a matching check name alone does not establish trusted code.
+GitHub can evaluate a PR's workflow changes, so that protected review policy is
+required in addition to this file's data-only validation steps.
 Require branches to be up to date before merging so duplicate and append-only
 checks use the current trusted catalog.
 Do not enable automatic merging or use `pull_request_target` for song proposals.
