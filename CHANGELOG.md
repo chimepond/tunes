@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Link the related repositories from the README and say where the JotTune Synth
+  checkout that the commands use comes from.
 - Check every commit of a song proposal: at most 20 single-parent commits on the base, each holding only base or final files.
 - Add the append-only `withdrawn.json`; validation keeps listed records out of `records/` and the PR check refuses listed record hashes and song IDs.
 - Require the canonical byte form (two-space indentation, unescaped UTF-8, LF, final newline) for `library.json` and `withdrawn.json`; a proposal's catalog must be the trusted bytes with only the declared entry appended.

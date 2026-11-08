@@ -14,6 +14,15 @@ It also carries collection names, declared genre/tempo/model information and a
 small editorial Favorites selection. Several compositions share a title but
 have distinct saved arrangements; title alone is not an identity.
 
+## Related repositories
+
+The commands below expect a built [JotTune Synth](https://github.com/chimepond/jottune-synth)
+checkout beside this one, at `../jottune-synth`. Clone it there and run `make` in it to
+build `build/s12e10p1v1/harness`; its README has the project map.
+[JotTune MCP](https://github.com/chimepond/jottune-mcp) lets agent clients compose and
+render TL songs, and [ChimePond](https://chimepond.com) is the separately operated sharing
+platform. Repository links become available when the public beta is published.
+
 ## Listen
 
 Open any complete `.tl` record in the standalone JotTune browser or native player.
