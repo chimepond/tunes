@@ -11,6 +11,7 @@ contains exactly its record, contribution declaration and appended catalog entry
 The declaration must be accepted by the actual submitter. A passing automated
 check remains a proposal for maintainer review, not approval or publication.
 
-For repository maintenance, describe the change separately; the song checker is
-intentionally restricted to data-only song proposals. Do not alter its workflow
-to make a submission pass.
+For repository maintenance, describe the change separately. The song checker
+accepts only data-only song proposals; a pull request that changes no song data
+in any commit skips it with a notice and still needs maintainer review. Do not
+alter its workflow to make a submission pass.

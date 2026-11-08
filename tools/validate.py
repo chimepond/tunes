@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+import datetime
 import hashlib
 import json
 import math
@@ -15,9 +16,20 @@ import subprocess
 import unicodedata
 
 MAX_CATALOG_BYTES = 16 * 1024 * 1024
-MAX_RECORD_BYTES = 25 * 1024 * 1024
+# Equal to the JotTune Synth browser input limit (web/policy.mjs recordBytes) and ChimePond intake.
+MAX_RECORD_BYTES = 1_000_000
 SHA = re.compile(r"[a-f0-9]{64}\Z")
 LABEL = re.compile(r"[A-Za-z0-9._:+/@-]{1,160}\Z")
+SONG_ID = re.compile(r"[a-z0-9][a-z0-9-]*-[a-f0-9]{12}\Z")
+DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}\Z")
+# ZWNJ and ZWJ shape Persian, Indic and emoji text; every other format character can hide or reorder text.
+JOINERS = "\u200c\u200d"
+# Hangul and Braille fillers draw nothing, although Unicode classes them as letters or symbols.
+FILLERS = "\u115f\u1160\u2800\u3164\uffa0"
+# Skin-tone modifiers may sit between an emoji and its ZWJ.
+EMOJI_MODIFIERS = "\U0001f3fb\U0001f3fc\U0001f3fd\U0001f3fe\U0001f3ff"
+# UTS #39 section 5.4: more than four nonspacing marks in a row is refused as a likely spoof.
+MAX_MARKS = 4
 
 
 def need(condition, message):
@@ -37,9 +49,72 @@ def invalid_constant(value):
     raise ValueError("Non-finite JSON number: " + value)
 
 
+def canonical_json(value):
+    """Return the one accepted byte form: two-space indent, unescaped UTF-8, file key order, final newline."""
+    return (json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n").encode("utf8")
+
+
+def read_json_file(path):
+    need(not path.is_symlink() and path.is_file() and path.stat().st_size <= MAX_CATALOG_BYTES,
+         "Use a regular bounded " + path.name + " file.")
+    data = path.read_bytes()
+    return data, json.loads(data.decode("utf8"), object_pairs_hook=unique_object, parse_constant=invalid_constant)
+
+
+def canonical_form(data, value, name):
+    need(data == canonical_json(value), name + " is not in canonical form: use two-space JSON indentation, "
+         "unescaped UTF-8, LF line ends and one final newline.")
+
+
+def iso_date(value):
+    if not (isinstance(value, str) and DATE.fullmatch(value)):
+        return False
+    try:
+        datetime.date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def joined(value, index):
+    """ZWNJ and ZWJ may follow a virama (as in RFC 5892) or join two letters; ZWJ may also join emoji symbols."""
+    if index > 0 and unicodedata.combining(value[index - 1]) == 9:
+        return True
+    position = index - 1
+    while position >= 0 and (unicodedata.category(value[position])[0] == "M" or value[position] in EMOJI_MODIFIERS):
+        position -= 1
+    before = unicodedata.category(value[position]) if position >= 0 else ""
+    after = unicodedata.category(value[index + 1]) if index + 1 < len(value) else ""
+    return before[:1] == "L" and after[:1] in ("L", "M") or value[index] == "\u200d" and before == after == "So"
+
+
+def text_problem(value, maximum=500):
+    """Return why catalog text is refused, or None; a reason names code points and never repeats hidden text."""
+    if not isinstance(value, str):
+        return "must be a JSON string"
+    if not 0 < len(value) <= maximum:
+        return "must hold 1 to " + str(maximum) + " characters, not " + str(len(value))
+    if value.strip() != value or value[0] in FILLERS or value[-1] in FILLERS:
+        return "must not start or end with white space or blank filler characters"
+    if unicodedata.normalize("NFC", value) != value:
+        return "must be in Unicode NFC form"
+    marks = 0
+    for index, character in enumerate(value):
+        category = unicodedata.category(character)
+        marks = marks + 1 if category in ("Mn", "Me") else 0
+        if marks > MAX_MARKS:
+            return "has more than " + str(MAX_MARKS) + " combining marks on one character"
+        if character in JOINERS and not joined(value, index):
+            return "uses the joiner U+%04X outside a word or an emoji sequence" % ord(character)
+        if category in ("Cc", "Cs", "Co", "Cn", "Zl", "Zp") or category == "Cf" and character not in JOINERS:
+            return "contains the control, format, private-use, unassigned or line-break character U+%04X" % ord(character)
+    if not any(unicodedata.category(character)[0] in "LNPS" and character not in FILLERS for character in value):
+        return "must show at least one visible character"
+    return None
+
+
 def text(value, maximum=500):
-    return isinstance(value, str) and 0 < len(value) <= maximum and value.strip() == value and not any(
-        unicodedata.category(character) in ("Cc", "Cf", "Cs") for character in value)
+    return text_problem(value, maximum) is None
 
 
 def labels(discovery):
@@ -59,8 +134,11 @@ def labels(discovery):
                  0 < tempo["min_bpm"] <= tempo["max_bpm"] <= 9007199254740991, "Invalid declared tempo.")
     if "provenance" in discovery:
         provenance = discovery["provenance"]
-        need(isinstance(provenance, dict) and set(provenance) == {"model", "model_source"} and
-             isinstance(provenance["model"], str) and LABEL.fullmatch(provenance["model"]) and
+        # Contributions declare made_by; the retained archive carries only the model pair, or no provenance.
+        need(isinstance(provenance, dict) and provenance and set(provenance) <= {"made_by", "model", "model_source"} and
+             ("model" in provenance) == ("model_source" in provenance) and
+             provenance.get("made_by", "agent") in ("agent", "human", "mixed"), "Invalid provenance declaration.")
+        need("model" not in provenance or isinstance(provenance["model"], str) and LABEL.fullmatch(provenance["model"]) and
              provenance["model_source"] in ("client-reported", "user-stated", "unknown"), "Invalid model declaration.")
 
 
@@ -74,7 +152,7 @@ def validate_catalog(value, read_record, members):
     for song in value["songs"]:
         need(isinstance(song, dict) and {"id", "title", "collection", "variants"} <= set(song) and
              set(song) <= {"id", "title", "collection", "revision", "variants"}, "Invalid song fields.")
-        need(text(song["id"], 200) and re.fullmatch(r"[a-z0-9][a-z0-9-]*-[a-f0-9]{12}", song["id"]) and
+        need(text(song["id"], 200) and SONG_ID.fullmatch(song["id"]) and
              song["id"] not in songs and text(song["title"]) and text(song["collection"], 200) and
              ("revision" not in song or text(song["revision"], 200)), "Invalid or duplicate song identity.")
         songs.add(song["id"])
@@ -122,12 +200,28 @@ def validate_catalog(value, read_record, members):
     return {"songs": len(songs), "versions": len(variants), "bytes": total_bytes}, files
 
 
+def validate_withdrawn(value, members):
+    """Validate the append-only withdrawal list; a listed record must never return to records/."""
+    need(isinstance(value, dict) and set(value) == {"version", "records"} and type(value["version"]) is int and
+         value["version"] == 1 and isinstance(value["records"], list), "Invalid withdrawn.json shape.")
+    members = set(members)
+    digests, songs = set(), set()
+    for entry in value["records"]:
+        need(isinstance(entry, dict) and set(entry) == {"record_sha256", "song_id", "date"} and
+             isinstance(entry["record_sha256"], str) and SHA.fullmatch(entry["record_sha256"]) and
+             text(entry["song_id"], 200) and SONG_ID.fullmatch(entry["song_id"]) and iso_date(entry["date"]),
+             "Invalid withdrawn record entry.")
+        relative = "records/" + entry["record_sha256"] + ".tl"
+        need(entry["record_sha256"] not in digests, "Duplicate withdrawn record: " + relative)
+        need(relative not in members, "Withdrawn record is still present: " + relative)
+        digests.add(entry["record_sha256"])
+        songs.add(entry["song_id"])
+    return digests, songs
+
+
 def validate(root):
     root = Path(root).resolve()
-    catalog = root / "library.json"
-    need(not catalog.is_symlink() and catalog.is_file() and catalog.stat().st_size <= MAX_CATALOG_BYTES,
-         "Use a regular bounded library.json file.")
-    value = json.loads(catalog.read_text(encoding="utf8"), object_pairs_hook=unique_object, parse_constant=invalid_constant)
+    catalog, value = read_json_file(root / "library.json")
     directory = root / "records"
     need(directory.is_dir() and not directory.is_symlink(), "Use a regular records directory.")
 
@@ -139,8 +233,12 @@ def validate(root):
         need(len(data) == record.stat().st_size, "TL size changed while reading: " + relative)
         return data
 
-    summary, files = validate_catalog(value, read_record,
-                                      ["records/" + member.name for member in directory.iterdir()])
+    members = ["records/" + member.name for member in directory.iterdir()]
+    summary, files = validate_catalog(value, read_record, members)
+    canonical_form(catalog, value, "library.json")
+    data, withdrawn = read_json_file(root / "withdrawn.json")
+    validate_withdrawn(withdrawn, members)
+    canonical_form(data, withdrawn, "withdrawn.json")
     return summary, [root / relative for relative in files]
 
 

@@ -30,13 +30,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "$SDK_SHA" ]]; then
-            printf '%s\n' 'Song intake is closed: a maintainer must publish the synth and configure the trusted JOTTUNE_SYNTH_REF before contribution checks can run.' >&2
-            exit 1
-          fi
-          for value in "$BASE_SHA" "$HEAD_SHA" "$SDK_SHA"; do
+          for value in "$BASE_SHA" "$HEAD_SHA"; do
             if [[ ! "$value" =~ ^[0-9a-f]{40}$ ]]; then
-              printf '%s\n' 'Base/head and JOTTUNE_SYNTH_REF must be full lowercase commit IDs.' >&2
+              message='Pull request base and head must be full lowercase commit IDs.'
+              printf '::error title=Invalid commit identity::%s\n' "$message"
+              printf '### Tune proposal check\n\n%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
               exit 1
             fi
           done
@@ -53,7 +51,49 @@ jobs:
           lfs: false
           show-progress: false
 
+      - name: Fetch candidate objects without checking them out
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Depth equals MAX_PROPOSAL_COMMITS in tools/check_pr.py so every commit in base..head can be checked.
+          git -c core.hooksPath=/dev/null -C "$GITHUB_WORKSPACE/trusted-tunes" fetch --no-tags --no-recurse-submodules --depth=20 origin "$HEAD_SHA"
+          git -C "$GITHUB_WORKSPACE/trusted-tunes" cat-file -e "$HEAD_SHA^{commit}"
+          test "$(git -C "$GITHUB_WORKSPACE/trusted-tunes" rev-parse HEAD)" = "$BASE_SHA"
+
+      - name: Classify song data changes with trusted base code
+        id: classify
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Exit 0 means no commit in base..head changes song data; any other result runs the full song check.
+          if python3 "$GITHUB_WORKSPACE/trusted-tunes/tools/check_pr.py" --classify \
+              --repo "$GITHUB_WORKSPACE/trusted-tunes" --base "$BASE_SHA" --head "$HEAD_SHA"; then
+            printf 'maintenance=true\n' >> "$GITHUB_OUTPUT"
+            message='No commit changes song data, so the song check did not run. Maintainers still review code, workflow and documentation changes.'
+            printf '::notice title=Song check not needed::%s\n' "$message"
+            printf '### Tune proposal check\n\n%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Require the trusted synth commit
+        if: steps.classify.outputs.maintenance != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$SDK_SHA" ]]; then
+            title='Song intake closed'
+            message='Song intake is closed: a maintainer must publish the synth and configure the trusted JOTTUNE_SYNTH_REF before contribution checks can run.'
+          elif [[ ! "$SDK_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            title='Invalid commit identity'
+            message='JOTTUNE_SYNTH_REF must be a full lowercase commit ID.'
+          else
+            exit 0
+          fi
+          printf '::error title=%s::%s\n' "$title" "$message"
+          printf '### Tune proposal check\n\n%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
       - name: Check out separately pinned public synth
+        if: steps.classify.outputs.maintenance != 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: chimepond/jottune-synth
@@ -66,6 +106,7 @@ jobs:
           show-progress: false
 
       - name: Verify checkouts and build only trusted native source
+        if: steps.classify.outputs.maintenance != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -73,19 +114,57 @@ jobs:
           test "$(git -C "$GITHUB_WORKSPACE/trusted-sdk" rev-parse HEAD)" = "$SDK_SHA"
           make -C "$GITHUB_WORKSPACE/trusted-sdk" CC=gcc HOSTCC=gcc -j2 all
 
-      - name: Fetch candidate objects without checking them out
-        shell: bash
-        run: |
-          set -euo pipefail
-          git -c core.hooksPath=/dev/null -C "$GITHUB_WORKSPACE/trusted-tunes" fetch --no-tags --no-recurse-submodules --depth=1 origin "$HEAD_SHA"
-          git -C "$GITHUB_WORKSPACE/trusted-tunes" cat-file -e "$HEAD_SHA^{commit}"
-          test "$(git -C "$GITHUB_WORKSPACE/trusted-tunes" rev-parse HEAD)" = "$BASE_SHA"
-
       - name: Validate proposal with trusted base checker
+        if: steps.classify.outputs.maintenance != 'true'
         shell: bash
         run: |
           set -euo pipefail
           python3 "$GITHUB_WORKSPACE/trusted-tunes/tools/validate.py" --root "$GITHUB_WORKSPACE/trusted-tunes"
+          result="$RUNNER_TEMP/tune-check.json"
+          refusal="$RUNNER_TEMP/tune-check.txt"
+          status=0
           python3 "$GITHUB_WORKSPACE/trusted-tunes/tools/check_pr.py" \
             --repo "$GITHUB_WORKSPACE/trusted-tunes" --base "$BASE_SHA" --head "$HEAD_SHA" \
-            --harness "$GITHUB_WORKSPACE/trusted-sdk/build/s12e10p1v1/harness"
+            --harness "$GITHUB_WORKSPACE/trusted-sdk/build/s12e10p1v1/harness" >"$result" 2>"$refusal" || status=$?
+          # Checker output can quote candidate data, so the log shows it with workflow commands stopped.
+          token="$(python3 -I -c 'import secrets; print(secrets.token_hex(16))')"
+          printf '::stop-commands::%s\n' "$token"
+          cat "$result" "$refusal"
+          printf '\n::%s::\n' "$token"
+          python3 -I - "$status" "$result" "$refusal" <<'PY'
+          import json, os, re, sys
+          status, result, refusal = int(sys.argv[1]), sys.argv[2], sys.argv[3]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("### Tune proposal check\n\n")
+              if status:
+                  # Escaped command data cannot start a new workflow command; the summary stays static.
+                  with open(refusal, encoding="utf-8", errors="replace") as stream:
+                      text = stream.read(4000).strip() or "The trusted checker exited with status %d." % status
+                  for old, new in (("%", "%25"), ("\r", "%0D"), ("\n", "%0A")):
+                      text = text.replace(old, new)
+                  print("::error title=Proposal refused::" + text)
+                  summary.write("Refused by the trusted checker: see the Proposal refused annotation and the job log.\n")
+                  sys.exit(1)
+              with open(result, encoding="utf-8") as stream:
+                  output = json.load(stream)
+              digest, duplicates = output["record_sha256"], output.get("pcm_duplicate_of", [])
+              collisions = output.get("title_collision", [])
+              if not (re.fullmatch(r"[0-9a-f]{64}", digest) and
+                      all(re.fullmatch(r"records/[0-9a-f]{64}\.tl", name) for name in duplicates) and
+                      all(re.fullmatch(r"[a-z0-9][a-z0-9-]{0,186}-[0-9a-f]{12}", name) for name in collisions)):
+                  sys.exit("The trusted checker returned an unexpected record identity.")
+              summary.write("Eligible for maintainer review: `records/%s.tl` passed the trusted checks. "
+                            "A passing check is not approval or publication.\n" % digest)
+              if duplicates:
+                  # A reviewer warning only: the check still passes.
+                  message = ("The rendered audio equals the saved PCM hash of " + ", ".join(duplicates) +
+                             ". Identity stays the canonical TL SHA-256; check originality before approval.")
+                  print("::warning title=Possible duplicate audio::" + message)
+                  summary.write("\nWarning: " + message + "\n")
+              if collisions:
+                  # Also a reviewer warning only: equal folded titles may be a copy or an impersonation.
+                  message = ("The title equals the title of " + ", ".join(collisions) +
+                             " after Unicode compatibility and case folding; check for a copy or an impersonation before approval.")
+                  print("::warning title=Possible title collision::" + message)
+                  summary.write("\nWarning: " + message + "\n")
+          PY

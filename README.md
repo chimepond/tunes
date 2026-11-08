@@ -32,7 +32,10 @@ omits versions of 20 seconds or less from its listening browser.
 The collection includes AI-authored music. Model/version attribution is kept
 only where it was reported for that exact saved version. An absent attribution
 means unknown; it must not be inferred from a title, style, collection or derived
-Keys/Mirror version. Genre and tempo are declarations, and tempo may be a range.
+Keys/Mirror version. Each contributed song also declares `made_by` (`agent`,
+`human` or `mixed`), which its catalog entry keeps in `discovery.provenance`;
+retained archive versions do not carry that field.
+Genre and tempo are declarations, and tempo may be a range.
 Source labels describe the origin of those declarations. The catalog's
 `discovery.source` points to the metadata in this repository.
 
@@ -54,11 +57,16 @@ python3 -m unittest discover -s tests
 
 It rejects duplicate JSON members and identities, non-finite numbers, unknown
 metadata fields, invalid paths, links, extra/missing records, invalid UTF-8,
-oversized files and SHA mismatches. Packaging validation does not parse the TL
+oversized files and SHA mismatches. It also checks `withdrawn.json`, the
+append-only list of withdrawn record hashes: entries are unique and valid, and
+no listed record may remain under `records/`. Both JSON files must be in
+canonical form: two-space indentation, unescaped UTF-8, LF line ends and one
+final newline, with keys in file order. Packaging validation does not parse the TL
 grammar. The optional native replay uses the production reader and checks saved
 PCM hashes; its single render leaves block independence unchecked. `--limit N`
 limits replay only and is reported explicitly. Full catalog/file validation
-always runs. The catalog is bounded to 16 MiB and each record to 25 MiB.
+always runs. The catalog is bounded to 16 MiB and each record to 1,000,000
+bytes, the browser input limit of JotTune Synth and the ChimePond intake limit.
 
 The synth's exporter can build its browser catalog directly from this checkout:
 
