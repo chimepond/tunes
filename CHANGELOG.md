@@ -12,6 +12,7 @@
 - Name existing records whose saved PCM hash equals a proposal's rendered hash in `pcm_duplicate_of` and a `Possible duplicate audio` CI warning; identity stays the canonical TL SHA-256 and a match never refuses a proposal.
 - Refuse catalog titles and collections that are not NFC, that contain private-use, unassigned, line or paragraph separator or format characters, more than four combining marks in a row or no visible character, or that start or end with a blank filler. ZWNJ and ZWJ stay allowed after a virama or between letters, and ZWJ between emoji; a refusal names the code point.
 - Keep a proposal's declared `made_by` in its catalog entry's `discovery.provenance`, and accept that field in validation.
+- Say in the README and CONTRIBUTING.md that a catalog with contributed songs needs a JotTune Synth exporter that accepts `made_by` provenance; an older exporter refuses it.
 - Name sorted, bounded candidate paths, the observed sample rate, length or render bytes and the first native error line in refusals; a timeout names its command and limit.
 - Limit native inspection and replay to 120 seconds of CPU time each on POSIX hosts, in addition to the 120-second deadline.
 - Add `tools/duration_table.py`, which generates the longest admissible song per sample rate and space shown in CONTRIBUTING.md and lists retained archive versions outside the current admission rules.

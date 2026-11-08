@@ -84,6 +84,11 @@ python3 ../jottune-synth/tools/export_library.py --root . --catalog library.json
   --harness ../jottune-synth/build/s12e10p1v1/harness --output out/web --jobs 2
 ```
 
+Songs accepted through a pull request keep their declared `made_by` in
+`discovery.provenance`. A JotTune Synth exporter from before its `made_by` support
+(see the synth CHANGELOG) refuses such a catalog with "Invalid discovery model
+provenance."
+
 ## Licensing and contributions
 
 The retained archive keeps its existing Apache-2.0 licence in `LICENSE`. Model

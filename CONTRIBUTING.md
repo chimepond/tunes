@@ -309,8 +309,9 @@ repository settings are explicit release steps.
 ## Review, acceptance and withdrawal
 
 A maintainer reviews the content and declarations before any merge. Accepted
-files keep the same format; the ordinary catalog validator/exporter can consume
-the appended entry. A PR merge is separate from ChimePond intake and does not
+files keep the same format. The catalog validator accepts the appended entry, and
+so does a JotTune Synth exporter with `made_by` support; an older exporter
+refuses the entry's `made_by` provenance. A PR merge is separate from ChimePond intake and does not
 create a platform receipt or bypass its verification, moderation or grace rules.
 
 A public PR already exposes the submitted bytes and metadata. Request removal
