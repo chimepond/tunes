@@ -8,12 +8,47 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 import datetime
 import hashlib
+import importlib.util
 import json
 import math
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 import unicodedata
+
+_spec = importlib.util.spec_from_file_location("tunes_document", Path(__file__).with_name("tl_document.py"))
+document = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(document)
+
+
+def check_metadata_agreement(metadata, external):
+    """Compare only explicitly shared declarations; absence never supplies evidence."""
+    for field in metadata.keys() & external.keys():
+        need(metadata[field] == external[field], "Embedded metadata conflicts with external " + field + ".")
+
+
+def catalog_declarations(song, discovery):
+    result = {key: song[key] for key in ("title", "collection")}
+    labels = discovery.get("metadata", {})
+    if "genre" in labels:
+        result["genre"] = labels["genre"]["value"]
+    if "tempo" in labels:
+        result["tempo"] = {key: labels["tempo"][key] for key in ("min_bpm", "max_bpm")}
+    provenance = discovery.get("provenance", {})
+    if "made_by" in provenance:
+        result["made_by"] = provenance["made_by"]
+    if "model" in provenance:
+        result["model"] = {"id": provenance["model"], "source": provenance["model_source"]}
+    return result
+
+
+def check_helper_parity(synth_root):
+    """When a synth checkout is available, refuse drift in the standalone helper."""
+    reference = Path(synth_root) / "tools/tl_document.py"
+    need(reference.is_file() and reference.read_bytes() == Path(__file__).with_name("tl_document.py").read_bytes(),
+         "Vendored TL document helper differs from the synth helper.")
+
 
 MAX_CATALOG_BYTES = 16 * 1024 * 1024
 # Equal to the JotTune Synth browser input limit (web/policy.mjs recordBytes) and ChimePond intake.
@@ -168,7 +203,7 @@ def validate_catalog(value, read_record, members):
             variants.add(variant["id"])
             discovery = variant["discovery"]
             need(isinstance(discovery, dict) and {"record_sha256", "source"} <= set(discovery) and
-                 set(discovery) <= {"record_sha256", "source", "metadata", "provenance", "featured", "showcase"} and
+                 set(discovery) <= {"record_sha256", "document_sha256", "source", "metadata", "provenance", "featured", "showcase"} and
                  isinstance(discovery["record_sha256"], str) and SHA.fullmatch(discovery["record_sha256"]) and
                  discovery["source"] == "library.json", "Invalid metadata linkage.")
             digest = discovery["record_sha256"]
@@ -180,11 +215,16 @@ def validate_catalog(value, read_record, members):
             need(isinstance(data, bytes) and 0 < len(data) <= MAX_RECORD_BYTES,
                  "Empty or oversized TL file: " + relative)
             data.decode("utf8", errors="strict")
-            need(b"\0" not in data and hashlib.sha256(data).hexdigest() == digest,
+            labels(discovery)
+            parsed = document.parse_document(data)
+            need(hashlib.sha256(parsed["body"]).hexdigest() == digest,
                  "TL bytes differ from their canonical identity: " + relative)
+            if "document_sha256" in discovery:
+                need(isinstance(discovery["document_sha256"], str) and SHA.fullmatch(discovery["document_sha256"]) and
+                     hashlib.sha256(data).hexdigest() == discovery["document_sha256"], "TL full-file checksum differs: " + relative)
+            check_metadata_agreement(parsed["metadata"], catalog_declarations(song, discovery))
             total_bytes += len(data)
             files.append(relative)
-            labels(discovery)
             for section in orders:
                 if section not in discovery:
                     continue
@@ -243,7 +283,19 @@ def validate(root):
 
 
 def replay(harness, record):
-    result = subprocess.run([str(harness), "--play-once", "--", str(record)], capture_output=True, text=True, timeout=600)
+    parsed = document.parse_document(record.read_bytes())
+    with tempfile.TemporaryDirectory(prefix="tunes-replay-") as scratch:
+        full, body = Path(scratch) / "document.tl", Path(scratch) / "body.tl"
+        command = [str(harness), "--play-once", "--merged", str(full)]
+        if parsed["header"]:
+            command += ["--merged-body", str(body)]
+        result = subprocess.run(command + ["--", str(record)], capture_output=True, text=True, timeout=600)
+        need(result.returncode == 0, "Native replay refused " + record.name + ": " + result.stderr.strip()[:300])
+        emitted = document.parse_document(full.read_bytes())
+        need(emitted["body"] == parsed["body"], "Record is not the exact native canonical music body.")
+        need(emitted["header"] == parsed["header"], "Native full export changed the portable header.")
+        if parsed["header"]:
+            need(body.read_bytes() == parsed["body"], "Native body-only export differs from the canonical music body.")
     need(result.returncode == 0, "Native replay refused " + record.name + ": " + result.stderr.strip()[:300])
     rows = [line for line in result.stdout.splitlines() if line.startswith("PLAY ")]
     need(len(rows) == 1, "Native replay returned no unique PLAY result.")
@@ -257,11 +309,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--harness", type=Path, help="also replay records through this explicit native renderer")
+    parser.add_argument("--synth-root", type=Path, help="also check the vendored document helper against this synth checkout")
     parser.add_argument("--jobs", type=int, choices=range(1, 9), default=1)
     parser.add_argument("--limit", type=int, help="replay only this many records; package validation remains complete")
     args = parser.parse_args()
     try:
         need(args.limit is None or args.limit > 0, "Replay limit must be positive.")
+        if args.synth_root:
+            check_helper_parity(args.synth_root)
         summary, files = validate(args.root)
         count = 0
         if args.harness:

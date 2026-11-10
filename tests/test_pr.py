@@ -34,7 +34,11 @@ if '--inspect' in sys.argv:
        (fs,frames,config.get('length_ns',21000000000),pcm,config.get('lower',8000000),config.get('saved',1)))
 else:
  source=pathlib.Path(sys.argv[2]);target=pathlib.Path(sys.argv[sys.argv.index('--merged')+1])
- target.write_bytes(b'changed' if config.get('rewrite') else source.read_bytes())
+ data=source.read_bytes()
+ target.write_bytes(b'changed' if config.get('rewrite') else data)
+ if '--merged-body' in sys.argv:
+  body=data.split(b'# end-jottune-tl\\n',1)[1] if data.startswith(b'# jottune-tl ') else data
+  pathlib.Path(sys.argv[sys.argv.index('--merged-body')+1]).write_bytes(body)
  print('PLAY hash=%s expected=1234567890abcdef match=%s block_indep=%s'%
        (config.get('hash','1234567890abcdef'),config.get('match','yes'),config.get('block','yes')))
 if config.get('stderr'):sys.stderr.write(config['stderr'])
@@ -69,6 +73,31 @@ class ProposalTests(unittest.TestCase):
         self.harness.chmod(0o755)
         self.native_config()
 
+    def test_portable_proposal_preserves_body_identity_and_publication_consent(self):
+        body = b"canonical proposed record\n"
+        data = checker.catalog.document.compose_document(body, {"title": "New proposal", "made_by": "agent", "license": "CC0-1.0"})
+        self.proposal(data)
+        discovery = self.song["variants"][0]["discovery"]
+        discovery["document_sha256"] = hashlib.sha256(data).hexdigest()
+        self.save()
+        self.assertTrue(self.check()["eligible"])
+        self.assertEqual(self.digest, hashlib.sha256(body).hexdigest())
+        self.declaration["consent"]["dataset"] = False
+        self.save()
+        with self.assertRaisesRegex(ValueError, "declarations are required"):
+            self.check()
+
+    def test_portable_proposal_conflicting_declaration_is_refused(self):
+        self.proposal(checker.catalog.document.compose_document(b"new body\n", {"title": "Different title"}))
+        with self.assertRaisesRegex(ValueError, "conflicts with external title"):
+            self.check()
+
+    def test_metadata_only_proposal_cannot_duplicate_existing_body(self):
+        data = checker.catalog.document.compose_document(b"baseline record\n", {"title": "Another label"})
+        self.proposal(data)
+        with self.assertRaisesRegex(ValueError, "hash already exists"):
+            self.check()
+
     def git(self, *args):
         return subprocess.check_output(["git", "-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false",
             "-c", "core.fsmonitor=false", "-C", str(self.repo), *args], stderr=subprocess.DEVNULL).decode().strip()
@@ -88,7 +117,7 @@ class ProposalTests(unittest.TestCase):
         self.harness.with_suffix(".json").write_text(json.dumps(values))
 
     def proposal(self, data=b"canonical proposed record\n"):
-        digest = hashlib.sha256(data).hexdigest()
+        digest = checker.catalog.document.body_sha256(data) if data.startswith(b"# jottune-tl ") else hashlib.sha256(data).hexdigest()
         self.digest = digest
         self.record = self.repo / "records" / (digest + ".tl")
         self.record.write_bytes(data)
@@ -876,6 +905,14 @@ class ProposalTests(unittest.TestCase):
             self.assertTrue(observed["eligible"])
             self.assertEqual(observed["fs"], rate)
             self.assertEqual(observed["frames"], 21 * rate)
+            body_identity = self.digest
+            portable = checker.catalog.document.compose_document(canonical.read_bytes(),
+                {"title":"New proposal", "made_by":"agent", "license":"CC0-1.0"})
+            self.setUp_proposal_data(portable)
+            self.song["variants"][0]["discovery"]["document_sha256"] = hashlib.sha256(portable).hexdigest()
+            self.save()
+            self.assertTrue(self.check(harness)["eligible"])
+            self.assertEqual(self.digest, body_identity)
         damaged = re.sub(rb"(?m)^hash ([a-f0-9])", lambda found: b"hash " +
                          (b"f" if found[1] != b"f" else b"e"), canonical.read_bytes(), count=1)
         self.setUp_proposal_data(damaged)

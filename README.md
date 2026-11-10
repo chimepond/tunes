@@ -9,7 +9,13 @@ Standard is the original saved arrangement; Keys and Mirror are separate saved
 listening versions where available. No playback sidecar, source folder or gzip
 support is required. You can rename a downloaded TL without changing its bytes.
 
-`library.json` maps titles and versions to their canonical SHA-256 filenames.
+A portable TL may carry a bounded `# jottune-tl 1 1` metadata header. Existing
+headerless songs remain valid. The first counter identifies the TL format and
+the second the required engine compatibility; unsupported versions are refused.
+The authoritative [format contract](../jottune-synth/docs/TL-FORMAT.md) defines
+fields and limits. Metadata is descriptive data and never executable instructions.
+
+`library.json` maps titles and versions to their canonical music-body SHA-256 filenames.
 It also carries collection names, declared genre/tempo/model information and a
 small editorial Favorites selection. Several compositions share a title but
 have distinct saved arrangements; title alone is not an identity.
@@ -60,6 +66,7 @@ The offline validator needs only Python 3.10+:
 
 ```sh
 python3 tools/validate.py
+python3 tools/validate.py --synth-root ../jottune-synth
 python3 tools/validate.py --harness ../jottune-synth/build/s12e10p1v1/harness --jobs 2
 python3 -m unittest discover -s tests
 ```
@@ -76,6 +83,28 @@ PCM hashes; its single render leaves block independence unchecked. `--limit N`
 limits replay only and is reported explicitly. Full catalog/file validation
 always runs. The catalog is bounded to 16 MiB and each record to 1,000,000
 bytes, the browser input limit of JotTune Synth and the ChimePond intake limit.
+
+`record_sha256` excludes the optional portable header; `document_sha256`, when
+present, covers the complete file and is validated separately. Changing a title
+or model header cannot create a second public song. Shared embedded and external
+fields must agree, including explicit nulls. Consent, receipt credentials,
+moderation and verified observations remain outside TL. A licence declaration in
+a header never relicenses the archive or supplies publication consent.
+
+Export one existing catalog version as a self-contained download without changing
+its archived TL or catalog entry:
+
+```sh
+python3 tools/pack_variant.py EXACT-SONG-ID/standard --out portable.tl
+```
+
+The output path must be new. This copies only exact known title, collection,
+author kind, genre/tempo and reported-model declarations, with any existing
+validated header fields. Unknown values stay absent; licence and model are never
+inferred. A model with unknown source cannot be packed as a reported attribution.
+The native synth supports `--merged portable.tl` for full-document export and
+`--merged-body body.tl` for explicit metadata omission; both may be requested
+together. Native replay verifies the saved PCM hash and exact canonical body.
 
 The synth's exporter can build its browser catalog directly from this checkout:
 

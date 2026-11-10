@@ -202,7 +202,7 @@ class CatalogTests(unittest.TestCase):
         for size in (1_000_000, 1_000_001):
             with self.subTest(size=size):
                 self.record.unlink()
-                data = b"a" * size
+                data = (b"a\n" * (size // 2)) + b"a" * (size % 2)
                 digest = hashlib.sha256(data).hexdigest()
                 self.record = self.root / "records" / (digest + ".tl")
                 self.record.write_bytes(data)

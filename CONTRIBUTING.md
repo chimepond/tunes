@@ -12,7 +12,7 @@ approval or listing rules.
 
 Each song PR adds one complete original Standard version:
 
-1. `records/<sha256>.tl`: the exact native canonical record.
+1. `records/<sha256>.tl`: the exact native canonical music body, optionally preceded by a supported portable metadata header.
 2. `contributions/<sha256>.json`: its public metadata and declarations.
 3. `library.json`: append exactly one matching song at the end of `songs`.
 
@@ -32,9 +32,9 @@ by rebasing it instead of merging `main` into it.
 Use an explicitly trusted native renderer to prepare and replay your record:
 
 ```sh
-"$TRUSTED_HARNESS" --play draft.tl --merged complete.tl
+"$TRUSTED_HARNESS" --play draft.tl --merged complete.tl --merged-body body.tl
 "$TRUSTED_HARNESS" --play complete.tl
-python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' complete.tl
+python3 tools/tl_document.py validate complete.tl
 ```
 
 New community records use 44100 or 48000 Hz and contain no more than 1,000,000
@@ -130,6 +130,18 @@ Set a declaration to `true` only when the person submitting has accepted it.
 }
 ```
 
+A portable header is optional. Its format and engine counters are uint32 and
+currently both 1; field types and bounds follow the synth's `docs/TL-FORMAT.md`.
+The native canonical body determines `<sha256>`; the header is excluded. Keep
+`--merged-body body.tl` separate from `--merged portable.tl` when calculating that
+identity. A header may declare title, collection, made_by, genre, tempo and model,
+but any field also supplied in the contribution JSON must agree, including null.
+If present, its `license` must agree with this contribution's `CC0-1.0` declaration.
+The header never replaces the required per-publication consent below. Header-only
+changes cannot resubmit an existing body. Add the exact full-file SHA-256 as
+`discovery.document_sha256` at the end of the new catalog discovery object when
+a header is present; retain `record_sha256` and the filename as body identities.
+
 All shown fields are required; unknown fields and duplicate JSON members are
 refused. The declaration file has the same 1,000,000-byte cap as the TL.
 
@@ -206,7 +218,7 @@ appended, written as Python's `json.dumps(value, indent=2, ensure_ascii=False)`
 plus one final newline. That means two-space indentation, non-ASCII characters
 as UTF-8 rather than `\u` escapes, LF line ends and no trailing spaces. Keys
 follow the order shown: `discovery` holds `record_sha256`, `source`, `metadata`,
-`provenance`; `metadata` holds `genre` before `tempo`; a tempo is `min_bpm`,
+`provenance`, followed by `document_sha256` for a portable file; `metadata` holds `genre` before `tempo`; a tempo is `min_bpm`,
 `max_bpm`, `source`; a genre is `value`, `source`; a provenance is `made_by`,
 `model`, `model_source`. Existing entries keep their bytes, including key order. This
 rewrites an edited file in that form without changing key order or values:

@@ -244,7 +244,7 @@ def read_json(data):
         raise ValueError("JSON nesting exceeds the parser limit.") from error
 
 
-def declared_song(value, digest):
+def declared_song(value, digest, data=None):
     need(isinstance(value, dict) and set(value) == {
         "version", "record_sha256", "song", "made_by", "genre", "tempo", "model", "consent"}, "Invalid contribution fields.")
     need(type(value["version"]) is int and value["version"] == 1 and value["record_sha256"] == digest,
@@ -283,6 +283,13 @@ def declared_song(value, digest):
              model["source"] in ("client-reported", "user-stated"), "Invalid model declaration fields.")
         discovery["provenance"].update(model=model["id"], model_source=model["source"])
     catalog.labels(discovery)
+    if data is not None:
+        parsed = catalog.document.parse_document(data)
+        external = {**{key: song[key] for key in ("title", "collection")},
+                    **{key: value[key] for key in ("made_by", "genre", "tempo", "model")}, "license": "CC0-1.0"}
+        catalog.check_metadata_agreement(parsed["metadata"], external)
+        if parsed["header"]:
+            discovery["document_sha256"] = hashlib.sha256(data).hexdigest()
     # Key order is the documented catalog order, so the appended entry has one accepted byte form.
     return {"id": song["id"], "title": song["title"], "collection": song["collection"],
             "variants": [{"kind": "standard", "id": song["id"] + "/standard",
@@ -323,7 +330,12 @@ def inspect_and_replay(harness, record, directory):
     need(info.get("hash_present") == "1" and re.fullmatch(r"[a-f0-9]{16}", info.get("expected_hash", "")),
          "A complete record needs its saved native hash.")
     canonical = directory / "canonical.tl"
-    status, output, errors = run([str(harness), "--play", str(record), "--merged", str(canonical)], name="Native replay", **limits)
+    parsed = catalog.document.parse_document(record.read_bytes())
+    body = directory / "canonical-body.tl"
+    command = [str(harness), "--play", str(record), "--merged", str(canonical)]
+    if parsed["header"]:
+        command += ["--merged-body", str(body)]
+    status, output, errors = run(command, name="Native replay", **limits)
     need(status == 0, "Native replay refused the record" + failure(status, errors) + ".")
     play = native_row(output, "PLAY")
     need(play.get("match") == "yes" and play.get("block_indep") == "yes" and
@@ -331,6 +343,9 @@ def inspect_and_replay(harness, record, directory):
          "Native hash or block independence differs.")
     need(canonical.is_file() and not canonical.is_symlink() and canonical.stat().st_size <= MAX_RECORD_BYTES and
          canonical.read_bytes() == record.read_bytes(), "Record is not the exact complete native canonical TL.")
+    if parsed["header"]:
+        need(body.is_file() and not body.is_symlink() and body.read_bytes() == parsed["body"],
+             "Record is not the exact complete native canonical music body.")
     return {"fs": fs, "frames": frames, "channels": channels, "pcm_hash": play["hash"], "block_independence": "verified"}
 
 
@@ -385,7 +400,8 @@ def check_objects(git, base, head, harness):
          json.dumps(old["songs"], sort_keys=True, allow_nan=False),
          "Append exactly one song without changing existing catalog entries.")
     declaration = read_json(git.blob(candidate, declaration_path, MAX_RECORD_BYTES))
-    song = declared_song(declaration, digest)
+    data = git.blob(candidate, record_path, MAX_RECORD_BYTES)
+    song = declared_song(declaration, digest, data)
     need(song["id"] not in {item["id"] for item in old["songs"]}, "Song ID already exists.")
     need(song["id"] not in retired_songs, "This song ID was withdrawn and cannot be proposed again.")
     need(json.dumps(new["songs"][-1], sort_keys=True, allow_nan=False) ==
@@ -396,7 +412,7 @@ def check_objects(git, base, head, harness):
          "two-space JSON indentation, keys in the documented order, unescaped UTF-8, LF line ends and one final newline.")
     data = git.blob(candidate, record_path, MAX_RECORD_BYTES)
     data.decode("utf8", errors="strict")
-    need(b"\0" not in data and hashlib.sha256(data).hexdigest() == digest, "TL bytes differ from their canonical SHA identity.")
+    need(catalog.document.body_sha256(data) == digest, "TL bytes differ from their canonical SHA identity.")
     saved = {}
 
     def read_record(name):
