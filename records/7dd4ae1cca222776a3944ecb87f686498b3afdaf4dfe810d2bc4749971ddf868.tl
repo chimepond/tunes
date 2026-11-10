@@ -1,3 +1,14 @@
+# jottune-tl 1 1
+# {
+#   "collection": "Rhythm and Horizon",
+#   "genre": "dream-pop/shoegaze-inspired-instrumental",
+#   "tempo": {
+#     "max_bpm": 75,
+#     "min_bpm": 75
+#   },
+#   "title": "Pale Satellites"
+# }
+# end-jottune-tl
 timeline draft2
 engine a1 sine_bits=12 exp_bits=10 phase64=1 env64=1 fb_avg=1 tables=58021f1150d3c8d2
 fs 48000

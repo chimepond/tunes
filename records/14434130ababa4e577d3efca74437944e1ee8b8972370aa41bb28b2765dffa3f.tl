@@ -1,3 +1,14 @@
+# jottune-tl 1 1
+# {
+#   "collection": "Original repertoire",
+#   "genre": "industrial-broken-beat",
+#   "tempo": {
+#     "max_bpm": 160,
+#     "min_bpm": 160
+#   },
+#   "title": "Quench"
+# }
+# end-jottune-tl
 timeline draft1
 engine a1 sine_bits=12 exp_bits=10 phase64=1 env64=1 fb_avg=1 tables=58021f1150d3c8d2
 fs 48000

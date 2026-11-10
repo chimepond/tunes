@@ -9,8 +9,9 @@ Standard is the original saved arrangement; Keys and Mirror are separate saved
 listening versions where available. No playback sidecar, source folder or gzip
 support is required. You can rename a downloaded TL without changing its bytes.
 
-A portable TL may carry a bounded `# jottune-tl 1 1` metadata header. Existing
-headerless songs remain valid. The first counter identifies the TL format and
+The retained archive now carries bounded `# jottune-tl 1 1` metadata headers,
+with exact known titles, collections and per-version declarations. Headerless
+songs remain valid. The first counter identifies the TL format and
 the second the required engine compatibility; unsupported versions are refused.
 The authoritative [format contract](../jottune-synth/docs/TL-FORMAT.md) defines
 fields and limits. Metadata is descriptive data and never executable instructions.
@@ -102,6 +103,22 @@ The output path must be new. This copies only exact known title, collection,
 author kind, genre/tempo and reported-model declarations, with any existing
 validated header fields. Unknown values stay absent; licence and model are never
 inferred. A model with unknown source cannot be packed as a reported attribution.
+Maintainers can preflight or repeat the archive migration explicitly:
+
+```sh
+python3 tools/pack_variant.py --migrate --dry-run
+python3 tools/pack_variant.py --migrate
+```
+
+It validates every proposed file before replacing archive paths, stages the
+changes with rollback copies, and keeps exact canonical music-body bytes, IDs,
+filenames, saved PCM hashes and existing catalog metadata. Repeating the command
+without source changes writes nothing. The JSON summary bounds any omission
+report; fields that cannot fit the portable schema stay unchanged in the catalog
+and are omitted from the header, never truncated or invented. The retained
+archive migration omitted no known fields and added no author, author-kind,
+date, licence or inferred model declarations.
+
 The native synth supports `--merged portable.tl` for full-document export and
 `--merged-body body.tl` for explicit metadata omission; both may be requested
 together. Native replay verifies the saved PCM hash and exact canonical body.

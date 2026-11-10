@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add portable v1/v1 metadata headers to all 582 retained TL versions and record
+  their separate full-file checksums in `library.json`. Exact music bodies,
+  filenames, song IDs, saved PCM hashes, existing declarations and archive terms
+  stay unchanged; no author, date, licence or derived-version model is inferred.
+- Extend `tools/pack_variant.py` with complete migration preflight, rollback,
+  bounded omission reporting, dry run and byte-idempotent repeat runs.
+
 - Link the related repositories from the README and say where the JotTune Synth
   checkout that the commands use comes from.
 - Check every commit of a song proposal: at most 20 single-parent commits on the base, each holding only base or final files.

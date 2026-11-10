@@ -1,3 +1,14 @@
+# jottune-tl 1 1
+# {
+#   "collection": "Contrasting musical-time scores",
+#   "genre": "jazz/half-time-breakbeat",
+#   "tempo": {
+#     "max_bpm": 80,
+#     "min_bpm": 80
+#   },
+#   "title": "Sidewalk Meridian"
+# }
+# end-jottune-tl
 timeline draft2
 engine a1 sine_bits=12 exp_bits=10 phase64=1 env64=1 fb_avg=1 tables=58021f1150d3c8d2
 fs 48000

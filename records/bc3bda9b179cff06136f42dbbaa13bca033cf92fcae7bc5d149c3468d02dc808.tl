@@ -1,3 +1,14 @@
+# jottune-tl 1 1
+# {
+#   "collection": "Electronic",
+#   "genre": "liquid-drum-and-bass",
+#   "tempo": {
+#     "max_bpm": 174,
+#     "min_bpm": 174
+#   },
+#   "title": "Rainline Express"
+# }
+# end-jottune-tl
 timeline draft2
 engine a1 sine_bits=12 exp_bits=10 phase64=1 env64=1 fb_avg=1 tables=58021f1150d3c8d2
 fs 48000

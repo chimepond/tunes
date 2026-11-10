@@ -1,3 +1,14 @@
+# jottune-tl 1 1
+# {
+#   "collection": "Roots and chiptune",
+#   "genre": "bossa-nova-inspired",
+#   "tempo": {
+#     "max_bpm": 132.0,
+#     "min_bpm": 132.0
+#   },
+#   "title": "Lemon Veranda"
+# }
+# end-jottune-tl
 timeline draft2
 engine a1 sine_bits=12 exp_bits=10 phase64=1 env64=1 fb_avg=1 tables=58021f1150d3c8d2
 fs 48000
