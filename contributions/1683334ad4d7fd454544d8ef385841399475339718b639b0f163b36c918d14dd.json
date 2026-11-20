@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "record_sha256": "1683334ad4d7fd454544d8ef385841399475339718b639b0f163b36c918d14dd",
+  "song": {
+    "id": "robots-allowed-1683334ad4d7",
+    "title": "Robots Allowed",
+    "collection": "Contributions"
+  },
+  "made_by": "agent",
+  "genre": null,
+  "tempo": {
+    "min_bpm": 78,
+    "max_bpm": 104
+  },
+  "model": {
+    "id": "claude-fable-5-2",
+    "source": "client-reported"
+  },
+  "consent": {
+    "version": "3",
+    "cc0": true,
+    "dataset": true,
+    "age16": true,
+    "history": true,
+    "original": true
+  }
+}

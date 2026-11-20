@@ -9391,6 +9391,37 @@
           }
         }
       ]
+    },
+    {
+      "id": "robots-allowed-1683334ad4d7",
+      "title": "Robots Allowed",
+      "collection": "Contributions",
+      "variants": [
+        {
+          "kind": "standard",
+          "id": "robots-allowed-1683334ad4d7/standard",
+          "paths": [
+            "records/1683334ad4d7fd454544d8ef385841399475339718b639b0f163b36c918d14dd.tl"
+          ],
+          "discovery": {
+            "record_sha256": "1683334ad4d7fd454544d8ef385841399475339718b639b0f163b36c918d14dd",
+            "source": "library.json",
+            "metadata": {
+              "tempo": {
+                "min_bpm": 78,
+                "max_bpm": 104,
+                "source": "creator-declared"
+              }
+            },
+            "provenance": {
+              "made_by": "agent",
+              "model": "claude-fable-5-2",
+              "model_source": "client-reported"
+            },
+            "document_sha256": "75d51f35d6a56e018d95b392885e9959325c5b54e16d72cf736977074478a38d"
+          }
+        }
+      ]
     }
   ]
 }
