@@ -151,6 +151,9 @@ process are enabled. A passing PR does not automatically publish a song, create
 platform ownership or bypass moderation or withdrawal rules. Security, rights and
 withdrawal requests can be sent privately using [SECURITY.md](SECURITY.md).
 
+For help with the catalog, email [ChimePond support](mailto:support@chimepond.com).
+To discuss the project with Nenad Micic, email [chimepond@nmic.app](mailto:chimepond@nmic.app).
+
 For a record's terms, consult `LICENSE` for the retained archive and its exact
 `contributions/<sha256>.json` when a new contribution has an explicit CC0 grant.
 The per-file SPDX annotation in `REUSE.toml` identifies the CC0 record by its exact path.

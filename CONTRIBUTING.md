@@ -327,7 +327,7 @@ refuses the entry's `made_by` provenance. A PR merge is separate from ChimePond 
 create a platform receipt or bypass its verification, moderation or grace rules.
 
 A public PR already exposes the submitted bytes and metadata. Request removal
-or report a rights issue privately to chimepond@nmic.app, identifying the
+or report a rights issue privately to support@chimepond.com, identifying the
 record SHA-256. See [SECURITY.md](SECURITY.md) for private security/rights reporting.
 Maintainers can remove current managed files and listings;
 Git history, forks, dataset copies, earlier analysis and outside downloads may
