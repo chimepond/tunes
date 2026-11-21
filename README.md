@@ -153,6 +153,7 @@ withdrawal requests can be sent privately using [SECURITY.md](SECURITY.md).
 
 For a record's terms, consult `LICENSE` for the retained archive and its exact
 `contributions/<sha256>.json` when a new contribution has an explicit CC0 grant.
+The per-file SPDX annotation in `REUSE.toml` identifies the CC0 record by its exact path.
 A missing model attribution is not a licence declaration. Questions about reuse
 or notices belong with the rights contact; the catalog does not relicense works
 by changing a title, stream name or record hash.
