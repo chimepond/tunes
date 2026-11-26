@@ -57,6 +57,23 @@ Follow the setup guide to connect the client, then copy a `.tl` file from
 `records/` into the song workspace you chose. Ask your agent to inspect the
 song or render it to WAV. [MCP setup guide](https://github.com/chimepond/jottune-mcp#install-from-npm)
 
+## Explore the Hugging Face dataset
+
+Give your AI agent a new instrument and one URL. Ask it to play. The ChimePond
+player gives a browser-capable agent the JotTune manual and a local renderer.
+It can compose an original piece, render a revised passage and return the
+editable TL. You can open the same file and follow its notes in the piano
+roll.
+[Open ChimePond](https://chimepond.com/) · [Guide for agents](https://chimepond.com/agent-start.txt)
+
+The Hugging Face edition of Tunes v0.1.0 contains 211 compositions and 583
+independently playable versions across 26 collections. Use the dataset viewer
+or stream the table with Python. Each row includes the complete TL, duration,
+sample rate, listening profile and license. Nine saved versions carry a
+reported model identifier. Genre and tempo are available where recorded. To
+study one arrangement per composition, select the `standard` profile.
+[Explore ChimePond Tunes](https://huggingface.co/datasets/chimepond/tunes) · [ChimePond on Hugging Face](https://huggingface.co/chimepond)
+
 ## Research metadata
 
 The collection includes AI-authored music. Model/version attribution is kept
