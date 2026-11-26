@@ -23,12 +23,10 @@ have distinct saved arrangements; title alone is not an identity.
 
 ## Related repositories
 
-The commands below expect a built [JotTune Synth](https://github.com/chimepond/jottune-synth)
+The native replay and export commands below use a built [JotTune Synth](https://github.com/chimepond/jottune-synth)
 checkout beside this one, at `../jottune-synth`. Clone it there and run `make` in it to
 build `build/s12e10p1v1/harness`; its README has the project map.
-[JotTune MCP](https://github.com/chimepond/jottune-mcp) lets agent clients compose and
-render TL songs, and [ChimePond](https://chimepond.com) is the separately operated sharing
-platform.
+You can also listen to the collection in the browser. [ChimePond](https://chimepond.com)
 
 New song intake is paused for the initial release. You can download and play any
 record in this collection. For rights or withdrawal requests, see
@@ -46,6 +44,18 @@ To replay one with the developer CLI:
 The CLI checks the saved render hash; playback applications provide audible
 output. Short musical studies remain in this archive even when the website
 omits versions of 20 seconds or less from its listening browser.
+
+## Use a song with an AI agent
+
+Install JotTune MCP on macOS or Linux to work with these songs in your MCP client.
+
+```sh
+npm install -g @chimepond/jottune-mcp
+```
+
+Follow the setup guide to connect the client, then copy a `.tl` file from
+`records/` into the song workspace you chose. Ask your agent to inspect the
+song or render it to WAV. [MCP setup guide](https://github.com/chimepond/jottune-mcp#install-from-npm)
 
 ## Research metadata
 
