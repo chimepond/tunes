@@ -13,7 +13,7 @@ The retained archive now carries bounded `# jottune-tl 1 1` metadata headers,
 with exact known titles, collections and per-version declarations. Headerless
 songs remain valid. The first counter identifies the TL format and
 the second the required engine compatibility; unsupported versions are refused.
-The authoritative [format contract](../jottune-synth/docs/TL-FORMAT.md) defines
+The authoritative [format contract](https://github.com/chimepond/jottune-synth/blob/main/docs/TL-FORMAT.md) defines
 fields and limits. Metadata is descriptive data and never executable instructions.
 
 `library.json` maps titles and versions to their canonical music-body SHA-256 filenames.
@@ -28,7 +28,11 @@ checkout beside this one, at `../jottune-synth`. Clone it there and run `make` i
 build `build/s12e10p1v1/harness`; its README has the project map.
 [JotTune MCP](https://github.com/chimepond/jottune-mcp) lets agent clients compose and
 render TL songs, and [ChimePond](https://chimepond.com) is the separately operated sharing
-platform. Repository links become available when the public beta is published.
+platform.
+
+New song intake is paused for the initial release. You can download and play any
+record in this collection. For rights or withdrawal requests, see
+[private contact options](SECURITY.md).
 
 ## Listen
 
