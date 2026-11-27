@@ -9,6 +9,9 @@ Standard is the original saved arrangement; Keys and Mirror are separate saved
 listening versions where available. No playback sidecar, source folder or gzip
 support is required. You can rename a downloaded TL without changing its bytes.
 
+To hear the collection without converting files, you can [listen live from
+the terminal](#play-the-whole-library-from-the-terminal) in catalog or random order.
+
 The retained archive now carries bounded `# jottune-tl 1 1` metadata headers,
 with exact known titles, collections and per-version declarations. Headerless
 songs remain valid. The first counter identifies the TL format and
@@ -40,6 +43,9 @@ In the browser, choose a song in the library, select **Load song**, then press
 
 ### Play the whole library from the terminal
 
+Live playback reads the `.tl` scores directly. The synth renders one track at
+a time in memory and sends the audio to `ffplay` without creating WAV or MP3 files.
+
 On macOS or Linux, install Git, Python 3.10+, Make, a C99 compiler and FFmpeg
 with `ffplay`. On Ubuntu or Debian with Python 3.10+, run
 `sudo apt install git python3 build-essential ffmpeg`. On macOS, install
@@ -67,9 +73,7 @@ python3 tools/render_tunes.py ../tunes --play
 python3 tools/render_tunes.py ../tunes --play --shuffle
 ```
 
-The terminal shows the current title and version. The synth prepares one track
-in memory and pipes it to your audio device through `ffplay`. Playback creates
-no WAV or MP3 files. Press **Ctrl+C** to stop.
+The terminal shows the current title and version. Press **Ctrl+C** to stop.
 
 ### Save the whole library as MP3 or WAV
 
