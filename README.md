@@ -34,8 +34,62 @@ record in this collection. For rights or withdrawal requests, see
 
 ## Listen
 
-Open any complete `.tl` record in the standalone JotTune browser or native player.
-To replay one with the developer CLI:
+In the browser, choose a song in the library, select **Load song**, then press
+**Play**. You can also open a downloaded `.tl` in the player.
+[Open ChimePond](https://chimepond.com/)
+
+### Play the whole library from the terminal
+
+On macOS or Linux, install Git, Python 3.10+, Make, a C99 compiler and FFmpeg
+with `ffplay`. On Ubuntu or Debian with Python 3.10+, run
+`sudo apt install git python3 build-essential ffmpeg`. On macOS, install
+Apple’s Command Line Tools with `xcode-select --install` if needed, then run
+`brew install python ffmpeg` with Homebrew.
+
+Clone the two repositories into the same directory. If you already have both,
+open a terminal in `jottune-synth` and skip the clone step.
+
+```sh
+git clone https://github.com/chimepond/tunes.git
+git clone https://github.com/chimepond/jottune-synth.git
+cd jottune-synth
+```
+
+**Play in catalog order**
+
+```sh
+python3 tools/render_tunes.py ../tunes --play
+```
+
+**Play every saved version once in random order**
+
+```sh
+python3 tools/render_tunes.py ../tunes --play --shuffle
+```
+
+The terminal shows the current title and version. The synth prepares one track
+in memory and pipes it to your audio device through `ffplay`. Playback creates
+no WAV or MP3 files. Press **Ctrl+C** to stop.
+
+### Save the whole library as MP3 or WAV
+
+From the same `jottune-synth` directory, choose a command for the format you
+want. It writes one audio file per saved version to the named folder.
+
+```sh
+python3 tools/render_tunes.py ../tunes --format mp3 -o ../chimepond-mp3
+python3 tools/render_tunes.py ../tunes --format wav -o ../chimepond-wav
+```
+
+MP3 uses LAME or FFmpeg with libmp3lame. WAV preserves the native sample rate
+and channels. For the 583 versions in v0.1.0, allow roughly 641 MiB for MP3
+or 6.2 GiB for WAV. Rerun the same command to resume. To add a piano-roll PNG
+beside each track, follow the optional browser setup and add `--piano-roll`.
+[Batch export guide](https://github.com/chimepond/jottune-synth/blob/main/tools/README.md#batch-export)
+
+### Verify one saved score
+
+From the `tunes` checkout, use the developer CLI to verify a record by its filename.
 
 ```sh
 ../jottune-synth/build/s12e10p1v1/harness --play records/RECORD_SHA256.tl
